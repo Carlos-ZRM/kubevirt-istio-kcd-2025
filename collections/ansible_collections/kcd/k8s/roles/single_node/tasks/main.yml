@@ -1,0 +1,52 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+- name: Configure Linux
+  ansible.builtin.import_role:
+    name: configure_hosts
+  become: true
+
+- name: Check if helm is installed
+  ansible.builtin.stat:
+    path: /usr/bin/helm
+  register: helm_installed
+
+- name: Install helm
+  ansible.builtin.uri:
+    url: https://mirror.openshift.com/pub/openshift-v4/clients/helm/latest/helm-linux-amd64
+    dest: /usr/bin/helm
+    mode: '0755'
+  become: true
+  when: not helm_installed.stat.exists
+
+- name: Pulling images kubeadm
+  ansible.builtin.shell:
+    cmd: "kubeadm config images pull"
+  become: true
+# tasks file for single_node
+
+- name: Kubeadm init
+  ansible.builtin.command:
+    cmd: "kubeadm init"
+    creates: /etc/kubernetes/manifests/etcd.yaml
+  become: true
+
+- name: Install cillium
+  kubernetes.core.helm:
+    name: cilium
+    chart_ref: cilium
+    release_namespace: kube-system
+    chart_version: 1.17.0
+    state: present
+    chart_repo_url: https://helm.cilium.io/
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      operator.replicas: 1
+  become: true
+
+- name: Make control plane schedulable
+  ansible.builtin.command:
+    cmd: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  become: true

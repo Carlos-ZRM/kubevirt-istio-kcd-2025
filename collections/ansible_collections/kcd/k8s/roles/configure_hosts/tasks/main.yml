@@ -1,0 +1,96 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+- name: Install Linux packages
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - firewalld
+
+- name: Enable Linux services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    masked: false
+    state: started
+  loop:
+    - firewalld
+
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Disable swap mount
+  ansible.posix.mount:
+    name: "{{ item }}"
+    fstype: swap
+    state: absent
+  loop: ["none", "swap"]
+
+- name: Disable swap command
+  ansible.builtin.command:
+    cmd: "swapoff -a"
+  when: ansible_swaptotal_mb > 0
+
+- name: Disable SELinux
+  ansible.posix.selinux:
+    policy: targeted
+    state: disabled
+
+- name: Add modprobe modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop: [br_netfilter, overlay]
+
+
+# - name: Configure firewalld
+#   ansible.posix.firewalld:
+#     port: "{{ item }}/udp"
+#     permanent: true
+#     state: enabled
+#   loop: "{{ configure_hosts_k8s_ports }}"
+
+- name: Configure kernel parameters
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '1'
+    sysctl_set: true
+    reload: true
+  loop:
+    - net.bridge.bridge-nf-call-ip6tables
+    - net.bridge.bridge-nf-call-iptables
+    - net.ipv4.ip_forward
+
+- name: Configure repos for kubernetes packages
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: /etc/yum.repos.d/{{ item | regex_replace('.j2', '') }}
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  loop:
+    - kubernetes.repo.j2
+    - cri-io.repo.j2
+
+- name: Install Kubernetes packages
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - cri-o
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Enable Kubernetes services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    masked: false
+    state: started
+  loop:
+    - kubelet
+    - crio

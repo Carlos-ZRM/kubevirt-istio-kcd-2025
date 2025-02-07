@@ -1,0 +1,14 @@
+---
+
+all:
+  vars:
+    #ansible_python_interpreter: /usr/bin/python3.12
+  hosts:
+    ct01.kubevirt:
+      ansible_host: {{ ip }}
+      ansible_user: {{ user }}
+      ansible_ssh_private_key_file: ./id_ed25519
+  children:
+    kubevirt_hosts:
+      hosts:
+        ct01.kubevirt:

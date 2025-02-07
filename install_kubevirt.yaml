@@ -1,0 +1,11 @@
+---
+
+- name: Playbook to install kubevirt
+  hosts: kubevirt_hosts
+  collections:
+    - kcd.kubevirt
+    - kcd.k8s
+  tasks:
+    - name: Install K8s with kubeadm
+      ansible.builtin.import_role:
+        name: single_node
