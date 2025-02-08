@@ -31,6 +31,32 @@
     creates: /etc/kubernetes/manifests/etcd.yaml
   become: true
 
+- name: Create kubeconfig directory
+  ansible.builtin.file:
+    state: directory
+    path: /home/sope/.kube
+    owner: sope
+    group: sope
+    mode: '0755'
+  become: true
+
+- name: Copy kubeconfig
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/sope/.kube/config
+    owner: sope
+    group: sope
+    remote_src: true
+  become: true
+
+- name: Change kubeconfig owner
+  ansible.builtin.file:
+    path: /home/sope/.kube/config
+    owner: sope
+    group: sope
+    mode: '0600'
+  become: true
+
 - name: Install cillium
   kubernetes.core.helm:
     name: cilium
@@ -44,9 +70,10 @@
       operator.replicas: 1
   become: true
 
-- name: Make control plane schedulable
-  ansible.builtin.command:
-    cmd: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  become: true
+# - name: Make control plane schedulable
+#   ansible.builtin.command:
+#     cmd: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+#   environment:
+#     KUBECONFIG: /etc/kubernetes/admin.conf
+#   become: true
+

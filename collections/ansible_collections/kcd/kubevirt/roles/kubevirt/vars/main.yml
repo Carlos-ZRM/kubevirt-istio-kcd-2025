@@ -1,2 +1,3 @@
 ---
 # vars file for kubevirt
+kubevirt_version: v1.4.0

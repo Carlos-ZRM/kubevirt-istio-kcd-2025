@@ -1,2 +1,45 @@
 ---
 # tasks file for kubevirt
+- name: Configure KVM
+  ansible.builtin.import_tasks:
+    file: configure-kvm.yaml
+
+- name: Download kubevirt operator manifest
+  ansible.builtin.get_url:
+    url: https://github.com/kubevirt/kubevirt/releases/download/{{ kubevirt_version }}/kubevirt-operator.yaml
+    dest: ~/kubevirt-operator.yaml
+    mode: '0664'
+
+- name: Download kubevirt CRD manifest
+  ansible.builtin.get_url:
+    url: https://github.com/kubevirt/kubevirt/releases/download/{{ kubevirt_version }}/kubevirt-cr.yaml
+    dest: ~/kubevirt-cr.yaml
+    mode: '0664'
+
+- name: Apply Kubevirt operator manifest to the cluster.
+  kubernetes.core.k8s:
+    state: present
+    src: ~/kubevirt-operator.yaml
+
+- name: Apply Kubevirt CRD manifest to the cluster.
+  kubernetes.core.k8s:
+    state: present
+    src: ~/kubevirt-cr.yaml
+
+# - name: Verify Kubevirt
+#   ansible.builtin.command:
+#     cmd: "kubectl get pods -n kubevirt"
+#   changed_when: false
+
+- name: Check if virtctl is installed
+  ansible.builtin.stat:
+    path: /usr/bin/virtctl
+  register: virtctl_installed
+
+- name: Install virtctl
+  ansible.builtin.uri:
+    url: https://github.com/kubevirt/kubevirt/releases/download/{{ kubevirt_version }}/virtctl-{{ kubevirt_version }}-linux-amd64
+    dest: /usr/bin/virtctl
+    mode: '0755'
+  become: true
+  when: not virtctl_installed.stat.exists

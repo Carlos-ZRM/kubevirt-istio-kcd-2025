@@ -1,4 +1,6 @@
 ---
 
-kvm_packages:
+kubevirt_kvm_packages:
+  - qemu-kvm
+  - libvirt
 # defaults file for kubevirt

@@ -1,2 +1,22 @@
 ---
 
+- name: Install KVM
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ kubevirt_kvm_packages }}"
+  become: true
+
+- name: Start libvirtd
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  become: true
+  loop:
+    - libvirtd
+
+- name: Verify KVM
+  ansible.builtin.command:
+    cmd: "virt-host-validate"
+  changed_when: false
