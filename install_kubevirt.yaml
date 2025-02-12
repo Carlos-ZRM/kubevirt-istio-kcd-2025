@@ -9,6 +9,9 @@
     - name: Install K8s with kubeadm
       ansible.builtin.import_role:
         name: single_node
-    - name: Configure KVM
+    - name: Install Kubevirt
       ansible.builtin.import_role:
         name: kubevirt
+    - name: Install Service Mesh
+      ansible.builtin.import_role:
+        name: service_mesh

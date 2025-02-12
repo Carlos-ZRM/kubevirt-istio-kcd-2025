@@ -1,0 +1,54 @@
+#SPDX-License-Identifier: MIT-0
+---
+
+- name: Create namespaces for istio
+  kubernetes.core.k8s:
+    state: present
+    kind: Namespace
+    name: "{{ item }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  loop:
+    - istio-system
+    - istio-ingress
+  become: true
+
+- name: Add istio helm repository
+  kubernetes.core.helm_repository:
+    name: istio
+    url: https://istio-release.storage.googleapis.com/charts
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Install istio base
+  kubernetes.core.helm:
+    name: istio-base
+    chart_ref: istio/base
+    release_name: istio-base
+    release_namespace: istio-system
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    wait: true
+  become: true
+
+- name: Install istio discovery
+  kubernetes.core.helm:
+    name: istiod
+    chart_ref: istio/istiod
+    release_name: istiod
+    release_namespace: istio-system
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    wait: true
+  become: true
+
+- name: Install istio ingress
+  kubernetes.core.helm:
+    name: istio-ingress
+    chart_ref: istio/gateway
+    release_name: istio-ingress
+    release_namespace: istio-ingress
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    #wait: true
+  become: true
+# tasks file for service_mesh

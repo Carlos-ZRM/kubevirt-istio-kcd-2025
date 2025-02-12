@@ -25,6 +25,8 @@
     - firewalld
     - net-tools
     - vim
+    - git
+    - haproxy
     - cockpit
     - cockpit-machines
     - cockpit-storaged
@@ -37,8 +39,9 @@
     masked: false
     state: started
   loop:
-    - firewalld
+    #- firewalld
     - cockpit
+    - haproxy
 
 - name: Install Pip packages
   ansible.builtin.pip:

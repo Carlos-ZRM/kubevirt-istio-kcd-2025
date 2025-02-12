@@ -19,12 +19,16 @@
 - name: Apply Kubevirt operator manifest to the cluster.
   kubernetes.core.k8s:
     state: present
-    src: ~/kubevirt-operator.yaml
+    src: /home/lab-user/kubevirt-operator.yaml
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
 
 - name: Apply Kubevirt CRD manifest to the cluster.
   kubernetes.core.k8s:
     state: present
-    src: ~/kubevirt-cr.yaml
+    src: /home/lab-user/kubevirt-cr.yaml
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
 
 # - name: Verify Kubevirt
 #   ansible.builtin.command:
@@ -43,3 +47,16 @@
     mode: '0755'
   become: true
   when: not virtctl_installed.stat.exists
+
+- name: Download kubevirt manager manifest
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/kubevirt-manager/kubevirt-manager/main/kubernetes/bundled.yaml
+    dest: /home/lab-user/kubevirt-manager.yaml
+    mode: '0664'
+
+- name: Apply Kubevirt manager manifest to the cluster.
+  kubernetes.core.k8s:
+    state: present
+    src: /home/lab-user/kubevirt-manager.yaml
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
