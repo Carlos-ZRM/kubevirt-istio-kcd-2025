@@ -1,0 +1,107 @@
+
+- name: Configure Linux
+  ansible.builtin.import_role:
+    name: configure_hosts
+  become: true
+
+- name: Check if helm is installed
+  ansible.builtin.stat:
+    path: /usr/bin/helm
+  register: helm_installed
+
+- name: Install helm
+  ansible.builtin.uri:
+    url: https://mirror.openshift.com/pub/openshift-v4/clients/helm/latest/helm-linux-amd64
+    dest: /usr/bin/helm
+    mode: '0755'
+  become: true
+  when: not helm_installed.stat.exists
+
+- name: Pulling images kubeadm
+  ansible.builtin.shell:
+    cmd: "kubeadm config images pull"
+  become: true
+# tasks file for single_node
+
+- name: Kubeadm init
+  ansible.builtin.command:
+    cmd: "kubeadm init"
+    creates: /etc/kubernetes/manifests/etcd.yaml
+  become: true
+
+- name: Create kubeconfig directory
+  ansible.builtin.file:
+    state: directory
+    path: /home/sope/.kube
+    owner: sope
+    group: sope
+    mode: '0755'
+  become: true
+
+- name: Copy kubeconfig
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/sope/.kube/config
+    owner: sope
+    group: sope
+    remote_src: true
+  become: true
+
+- name: Change kubeconfig owner
+  ansible.builtin.file:
+    path: /home/sope/.kube/config
+    owner: sope
+    group: sope
+    mode: '0600'
+  become: true
+
+- name: Install cillium
+  kubernetes.core.helm:
+    name: cilium
+    chart_ref: cilium
+    release_namespace: kube-system
+    chart_version: 1.17.0
+    state: present
+    chart_repo_url: https://helm.cilium.io/
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      operator:
+        replicas: 1
+  become: true
+
+- name: Search for not running pods in kube-system
+  kubernetes.core.k8s_info:
+    kind: Pod
+    field_selectors:
+      - status.phase!=Running
+    namespace: kube-system
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+  register: not_running_pods
+
+- name: Delete not running pods in kube-system
+  kubernetes.core.k8s:
+    state: absent
+    kind: Pod
+    name: "{{ item.metadata.name }}"
+    namespace: kube-system
+    become: true
+  loop: "{{ not_running_pods.resources }}"
+  become: true
+
+- name: Check if control plane is schedulable
+  ansible.builtin.command:
+    cmd: kubectl get nodes -o jsonpath='{.items[*].spec.taints}'
+  register: control_plane_taints
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Make control plane schedulable
+  ansible.builtin.command:
+    cmd: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  become: true
+  when: "'node-role.kubernetes.io/control-plane' in control_plane_taints.stdout"
+

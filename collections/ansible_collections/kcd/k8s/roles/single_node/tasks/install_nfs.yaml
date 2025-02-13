@@ -1,0 +1,79 @@
+---
+
+- name: Install nfs utils
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - nfs-utils
+    - lvm2
+  become: true
+
+- name: Enable and start nfs service
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop:
+    - nfs-mountd
+    - nfs-server
+  become: true
+
+- name: Check if volumegroup exists
+  ansible.builtin.command:
+    cmd: vgs k8s-fs-vg
+  register: vg_exists
+  failed_when: false
+  changed_when: false
+  become: true
+
+- name: Create a partition
+  community.general.parted:
+    device: /dev/{{ nfs_device }}
+    number: 1
+    state: present
+    label: gpt
+    part_start: 0%
+    part_end: 100%
+  when: vg_exists.rc != 0
+  become: true
+
+- name: Task for creating volume group
+  ansible.builtin.lvg:
+    vg: k8s-fs-vg
+    pvs: /dev/{{ nfs_device }}p1
+    pesize: 16
+  when: vg_exists.rc != 0
+  become: true
+
+- name: Task for creating logical volume
+  ansible.builtin.lvol:
+    vg: k8s-fs-vg
+    lv: k8s-fs-lv
+    size: 100%FREE
+    force: true
+  when: vg_exists.rc != 0
+  become: true
+
+- name: Create directory data1 if does not exist
+  ansible.builtin.file:
+    path: /mnt/k8s-fs
+    state: directory
+    mode: '0755'
+  become: true
+
+- name: format the xfs filesystem
+  ansible.builtin.filesystem:
+    fstype: xfs
+    dev: /dev/k8s-fs-vg/k8s-fs-lv
+  become: true
+
+- name: Mount the lv on /mnt/k8s-fs
+  ansible.builtin.mount:
+    path: /mnt/k8s-fs
+    src: /dev/k8s-fs-vg/k8s-fs-lv
+    fstype: xfs
+    state: mounted
+    opts: defaults
+  become: true
+

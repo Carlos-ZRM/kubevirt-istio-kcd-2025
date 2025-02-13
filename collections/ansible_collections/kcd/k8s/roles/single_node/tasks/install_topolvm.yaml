@@ -1,0 +1,79 @@
+---
+
+- name: Check if volumegroup exists
+  ansible.builtin.command:
+    cmd: vgs k8s-block-vg
+  register: vg_exists
+  failed_when: false
+  changed_when: false
+  become: true
+
+- name: Create a partition
+  community.general.parted:
+    device: /dev/{{ topolvm_device }}
+    number: 1
+    state: present
+    label: gpt
+    part_start: 0%
+    part_end: 100%
+    #flags: [ lvm ]
+  when: vg_exists.rc != 0
+  become: true
+
+- name: task for creating volume group
+  ansible.builtin.lvg:
+    vg: k8s-block-vg
+    pvs: /dev/{{ topolvm_device }}p1
+    pesize: 16
+  when: vg_exists.rc != 0
+  become: true
+
+- name: Create namespace topolvm-system
+  kubernetes.core.k8s:
+    state: present
+    kind: Namespace
+    name: topolvm-system
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Label namespace for topolvm
+  kubernetes.core.k8s:
+    state: patched
+    kind: Namespace
+    name: "{{ item }}"
+    definition:
+      metadata:
+        labels:
+          topolvm.io/webhook: ignore
+    kubeconfig: /etc/kubernetes/admin.conf
+  loop:
+    - topolvm-system
+    - kube-system
+  become: true
+
+- name: Install cert manager
+  ansible.builtin.import_tasks:
+    file: install_cert_manager.yaml
+
+- name: Add helm repository for topolvm
+  kubernetes.core.helm_repository:
+    name: topolvm
+    url: https://topolvm.github.io/topolvm
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Install topolvm
+  kubernetes.core.helm:
+    name: topolvm
+    chart_ref: topolvm/topolvm
+    release_name: topolvm
+    release_namespace: topolvm-system
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      controller:
+        replicaCount: 1
+      lvmd:
+        deviceClasses:
+          - {"default":true,"name":"ssd","spare-gb":10,"volume-group":"k8s-block-vg"}
+  become: true

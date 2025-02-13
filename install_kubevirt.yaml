@@ -9,6 +9,10 @@
     - name: Install K8s with kubeadm
       ansible.builtin.import_role:
         name: single_node
+      vars:
+        nfs_device: "nvme0n1"
+        topolvm_device: "nvme1n1"
+
     - name: Install Kubevirt
       ansible.builtin.import_role:
         name: kubevirt

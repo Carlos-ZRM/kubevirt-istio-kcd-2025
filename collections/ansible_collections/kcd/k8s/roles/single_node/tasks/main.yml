@@ -1,145 +1,21 @@
 #SPDX-License-Identifier: MIT-0
 ---
 
-- name: Configure Linux
-  ansible.builtin.import_role:
-    name: configure_hosts
-  become: true
+- name: Install nfs
+  ansible.builtin.import_tasks:
+    file: install_nfs.yaml
+  tags: nfs
 
-- name: Check if helm is installed
-  ansible.builtin.stat:
-    path: /usr/bin/helm
-  register: helm_installed
+- name: Install K8s with kubeadm
+  ansible.builtin.import_tasks:
+    file: install_k8s.yaml
 
-- name: Install helm
-  ansible.builtin.uri:
-    url: https://mirror.openshift.com/pub/openshift-v4/clients/helm/latest/helm-linux-amd64
-    dest: /usr/bin/helm
-    mode: '0755'
-  become: true
-  when: not helm_installed.stat.exists
+- name: Install services for k8s
+  ansible.builtin.import_tasks:
+    file: install_services.yaml
 
-- name: Pulling images kubeadm
-  ansible.builtin.shell:
-    cmd: "kubeadm config images pull"
-  become: true
-# tasks file for single_node
-
-- name: Kubeadm init
-  ansible.builtin.command:
-    cmd: "kubeadm init"
-    creates: /etc/kubernetes/manifests/etcd.yaml
-  become: true
-
-- name: Create kubeconfig directory
-  ansible.builtin.file:
-    state: directory
-    path: /home/sope/.kube
-    owner: sope
-    group: sope
-    mode: '0755'
-  become: true
-
-- name: Copy kubeconfig
-  ansible.builtin.copy:
-    src: /etc/kubernetes/admin.conf
-    dest: /home/sope/.kube/config
-    owner: sope
-    group: sope
-    remote_src: true
-  become: true
-
-- name: Change kubeconfig owner
-  ansible.builtin.file:
-    path: /home/sope/.kube/config
-    owner: sope
-    group: sope
-    mode: '0600'
-  become: true
-
-- name: Install cillium
-  kubernetes.core.helm:
-    name: cilium
-    chart_ref: cilium
-    release_namespace: kube-system
-    chart_version: 1.17.0
-    state: present
-    chart_repo_url: https://helm.cilium.io/
-    kubeconfig: /etc/kubernetes/admin.conf
-    values:
-      operator:
-        replicas: 1
-  become: true
-
-- name: Search for not running pods in kube-system
-  kubernetes.core.k8s_info:
-    kind: Pod
-    field_selectors:
-      - status.phase!=Running
-    namespace: kube-system
-    kubeconfig: /etc/kubernetes/admin.conf
-  become: true
-  register: not_running_pods
-
-- name: Delete not running pods in kube-system
-  kubernetes.core.k8s:
-    state: absent
-    kind: Pod
-    name: "{{ item.metadata.name }}"
-    namespace: kube-system
-    become: true
-  loop: "{{ not_running_pods.resources }}"
-  become: true
-
-- name: Check if control plane is schedulable
-  ansible.builtin.command:
-    cmd: kubectl get nodes -o jsonpath='{.items[*].spec.taints}'
-  register: control_plane_taints
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  become: true
-
-- name: Make control plane schedulable
-  ansible.builtin.command:
-    cmd: kubectl taint nodes --all node-role.kubernetes.io/control-plane-
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  become: true
-  when: "'node-role.kubernetes.io/control-plane' in control_plane_taints.stdout"
-
-- name: Create namespaces for k8s services
-  kubernetes.core.k8s:
-    state: present
-    kind: Namespace
-    name: "{{ item }}"
-    kubeconfig: /etc/kubernetes/admin.conf
-  loop:
-    - nginx-ingress
-    - kubernetes-dashboard
-  become: true
-
-- name: Check if nginx helm repo is added
-  ansible.builtin.command:
-    cmd: helm list -n nginx-ingress
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  register: helm_repo
-  become: true
-
-- name: Install nginx ingress with helm
-  ansible.builtin.command:
-    cmd: helm install my-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.0.1 --namespace nginx-ingress
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  when: helm_repo.rc != 0
-  become: true
-
-- name: Install kube dashboard with helm
-  kubernetes.core.helm:
-    name: my-dashboard
-    chart_ref: kubernetes-dashboard
-    release_namespace: kubernetes-dashboard
-    state: present
-    chart_repo_url: https://kubernetes.github.io/dashboard/
-    kubeconfig: /etc/kubernetes/admin.conf
-  become: true
+- name: Configure topolvm
+  ansible.builtin.import_tasks:
+    file: install_topolvm.yaml
+  tags: topolvm
+  

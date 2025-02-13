@@ -1,0 +1,38 @@
+---
+
+- name: Create namespaces for k8s services
+  kubernetes.core.k8s:
+    state: present
+    kind: Namespace
+    name: "{{ item }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  loop:
+    - nginx-ingress
+    - kubernetes-dashboard
+  become: true
+
+- name: Check if nginx helm repo is added
+  ansible.builtin.command:
+    cmd: helm list -n nginx-ingress
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  register: helm_repo
+  become: true
+
+- name: Install nginx ingress with helm
+  ansible.builtin.command:
+    cmd: helm install my-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.0.1 --namespace nginx-ingress
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: helm_repo.rc != 0
+  become: true
+
+- name: Install kube dashboard with helm
+  kubernetes.core.helm:
+    name: my-dashboard
+    chart_ref: kubernetes-dashboard
+    release_namespace: kubernetes-dashboard
+    state: present
+    chart_repo_url: https://kubernetes.github.io/dashboard/
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
