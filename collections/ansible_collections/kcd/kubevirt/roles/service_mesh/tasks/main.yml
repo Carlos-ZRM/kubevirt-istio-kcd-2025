@@ -9,3 +9,7 @@
 #  ansible.builtin.import_tasks:
 #    name: install-cert-manager.yaml
 
+- name: Install jeager
+  ansible.builtin.import_tasks:
+    file: install_jaeger.yaml
+  tags: jaeger

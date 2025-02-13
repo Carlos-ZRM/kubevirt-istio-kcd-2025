@@ -1,0 +1,52 @@
+---
+
+- name: Create namespace for Jeager
+  kubernetes.core.k8s:
+    state: present
+    kind: Namespace
+    name: "{{ item }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+  loop:
+    - elastic-system
+
+- name: Add helm repository for elastic Search
+  kubernetes.core.helm_repository:
+    name: elastic
+    url: https://helm.elastic.co
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Install elastic Search
+  kubernetes.core.helm:
+    name: elastic
+    chart_ref: elastic/elasticsearch
+    release_name: elastic
+    release_namespace: elastic-system
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      service:
+        type: NodePort
+      replicas: 1
+      volumeClaimTemplate:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 40Gi
+        storageClassName: topolvm-provisioner
+        volumeMode: Filesystem
+  become: true
+
+- name: Install kibana
+  kubernetes.core.helm:
+    name: kibana
+    chart_ref: elastic/kibana
+    release_name: kibana
+    release_namespace: elastic-system
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      service:
+        type: NodePort
+  become: true

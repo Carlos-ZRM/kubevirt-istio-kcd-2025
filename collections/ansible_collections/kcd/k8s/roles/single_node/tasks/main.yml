@@ -18,4 +18,8 @@
   ansible.builtin.import_tasks:
     file: install_topolvm.yaml
   tags: topolvm
-  
+
+- name: Install prometheus
+  ansible.builtin.import_tasks:
+    file: install_prometheus.yaml
+  tags: prometheus

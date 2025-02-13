@@ -53,7 +53,7 @@
 
 - name: Label namespace for istio injection
   kubernetes.core.k8s:
-    state: present
+    state: overridden
     kind: Namespace
     name: istio-demo
     labels:

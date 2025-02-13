@@ -105,3 +105,25 @@
   become: true
   when: "'node-role.kubernetes.io/control-plane' in control_plane_taints.stdout"
 
+- name: Add helm repository for metrics nfs-server
+  kubernetes.core.helm_repository:
+    name: metrics-server
+    url: https://kubernetes-sigs.github.io/metrics-server/
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Install metrics-server
+  kubernetes.core.helm:
+    name: metrics-server
+    chart_ref: metrics-server/metrics-server
+    release_name: metrics-server
+    release_namespace: kube-system
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      apiService:
+        insecureSkipTLSVerify: true
+  become: true
+  tags:
+    - metrics-server
+  #--kubelet-insecure-tls
