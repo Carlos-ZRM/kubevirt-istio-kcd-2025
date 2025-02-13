@@ -9,6 +9,7 @@
   become: true
   loop:
     - elastic-system
+    - jaeger-system
 
 - name: Add helm repository for elastic Search
   kubernetes.core.helm_repository:
@@ -49,4 +50,39 @@
     values:
       service:
         type: NodePort
+  become: true
+
+- name: Add jaeger helm repository
+  kubernetes.core.helm_repository:
+    name: jaegertracing
+    url: https://jaegertracing.github.io/helm-charts
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Install jaeger
+  kubernetes.core.helm:
+    name: jaeger
+    chart_ref: jaegertracing/jaeger
+    release_name: jaeger
+    release_namespace: jaeger-system
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      provisionDataStore:
+        elasticsearch: true
+        cassandra: false
+      agent:
+        strategy: DaemonSet
+      collector:
+        strategy: DaemonSet
+      query:
+        strategy: Deployment
+      storage:
+        type: elasticsearch
+        elasticsearch:
+          host: elastic-client
+          port: 9200
+          indexPrefix: jaeger
+          tls:
+            enabled: false
   become: true
