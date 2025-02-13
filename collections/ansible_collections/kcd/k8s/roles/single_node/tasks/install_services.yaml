@@ -36,3 +36,55 @@
     chart_repo_url: https://kubernetes.github.io/dashboard/
     kubeconfig: /etc/kubernetes/admin.conf
   become: true
+  tags:
+    - k8s-dashboard
+
+- name: Create service account for dashboard
+  kubernetes.core.k8s:
+    state: present
+    kind: ServiceAccount
+    name: sope-admin
+    namespace: kubernetes-dashboard
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+  tags: 
+    - k8s-dashboard
+
+- name: Create cluster role binding for dashboard
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: sope-admin
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+      subjects:
+      - kind: ServiceAccount
+        name: sope-admin
+        namespace: kubernetes-dashboard
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+  tags:
+    - k8s-dashboard
+
+- name: Create token for dashboard
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: sope-admin-token
+        annotations:
+          kubernetes.io/service-account.name: sope-admin
+      type: kubernetes.io/service-account-token
+    namespace: kubernetes-dashboard
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+  register: token
+  tags:
+    - k8s-dashboard
