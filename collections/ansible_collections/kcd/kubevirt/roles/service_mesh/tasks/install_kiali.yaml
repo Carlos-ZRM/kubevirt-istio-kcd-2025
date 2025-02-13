@@ -1,0 +1,37 @@
+---
+
+- name: Create namespace for kiali
+  kubernetes.core.k8s:
+    state: present
+    kind: Namespace
+    name: "{{ item }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+  loop:
+    - kiali
+    - kiali-operator
+
+- name: Add helm repository for kiali
+  kubernetes.core.helm_repository:
+    name: kiali
+    url: https://kiali.org/helm-charts
+    kubeconfig: /etc/kubernetes/admin.conf
+  become: true
+
+- name: Install kiali operator
+  kubernetes.core.helm:
+    name: kiali-operator
+    chart_ref: kiali/kiali-operator
+    release_name: kiali-operator
+    release_namespace: kiali-operator
+    state: present
+    kubeconfig: /etc/kubernetes/admin.conf
+    values:
+      cr:
+        create: true
+        namespace: istio-system
+        spec:
+          auth:
+            strategy: "anonymous"
+  become: true
+  

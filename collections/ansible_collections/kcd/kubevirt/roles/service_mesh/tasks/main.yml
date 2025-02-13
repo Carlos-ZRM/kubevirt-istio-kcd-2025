@@ -13,3 +13,8 @@
   ansible.builtin.import_tasks:
     file: install_jaeger.yaml
   tags: jaeger
+
+- name: Install Kiali
+  ansible.builtin.import_tasks:
+    file: install_kiali.yaml
+  tags: kiali
